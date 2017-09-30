@@ -8,7 +8,8 @@ from sqlalchemy import (
     String,
     DateTime
 )
-from database import Base, engine
+
+from database.base_db import Base, engine
 
 class Company(Base):
     __tablename__ = 'company'
@@ -41,6 +42,12 @@ class Position(Base):
     first_type = Column(String(20))
     second_type = Column(String(20))
 
+class Proxys(Base):
+    __tablename__ = 'proxys'
+    
+    id = Column(Integer, primary_key=True)
+    ip = Column(String(20))
+    port = Column(Integer)
 
 if __name__ == "__main__":
     Base.metadata.drop_all(engine)

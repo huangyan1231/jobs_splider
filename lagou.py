@@ -2,15 +2,15 @@
 #coding:utf8
 import requests
 import time
-from database import Session
-from models.jobs import Company, Position
-
+import random
+from database.base_db import Session
+from models.model import Company, Position
+session = Session()
 class Scrapy(object):
     pages = 0
 
     def __init__(self, keyword):
         self.keyword = keyword
-
 
     def fetch_one(self, page=0):
         url = 'https://www.lagou.com/jobs/positionAjax.json?city=%E6%88%90%E9%83%BD&needAddtionalResult=false&isSchoolJob=0'
@@ -23,12 +23,15 @@ class Scrapy(object):
             'pn': str(page),
             'kd': self.keyword
         }
+ 
         result = requests.post(url, data=params, headers=header).json()
 
         if result['success'] == False:
             print('抓取失败')
             print(result)
-            exit()
+            time.sleep(120)
+            return self.fetch_one(page)
+        
         return result
     
     def spider(self):
@@ -48,10 +51,10 @@ class Scrapy(object):
             )
             result = self.fetch_one(page)
             self.parse(result['content']['positionResult']['result'])
-            time.sleep(2)
+            time.sleep(random.random()+5)
         print('{}职位抓取完成.'.format(self.keyword))
     def parse(self, jobs):
-        session = Session()
+        # session = Session()
         for job in jobs:
             cp = session.query(Company.id).filter_by(id=job['companyId']).first()
             ps = session.query(Position.id).filter_by(id=job['positionId']).first()
@@ -94,7 +97,7 @@ class Scrapy(object):
 
 
 if __name__ == '__main__':
-    from models.jobs import Base, engine
+    from models.model import Base, engine
     Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
 
@@ -102,5 +105,4 @@ if __name__ == '__main__':
     for pos in pos_list:
         scrapy = Scrapy(pos)
         scrapy.spider()
-        time.sleep(60)
-
+        time.sleep(random.random()+50)

@@ -1,3 +1,5 @@
 sqlalchemy
 requests
 pymysql
+beautifulsoup4
+lxml
