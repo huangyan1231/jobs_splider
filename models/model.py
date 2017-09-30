@@ -44,10 +44,11 @@ class Position(Base):
 
 class Proxys(Base):
     __tablename__ = 'proxys'
-    
+
     id = Column(Integer, primary_key=True)
     ip = Column(String(20))
     port = Column(Integer)
+    protocal = Column(String(10))
 
 if __name__ == "__main__":
     Base.metadata.drop_all(engine)

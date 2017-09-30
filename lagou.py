@@ -3,33 +3,44 @@
 import requests
 import time
 import random
+from bs4 import BeautifulSoup
 from database.base_db import Session
-from models.model import Company, Position
+from models.model import Company, Position, Proxys
 session = Session()
 class Scrapy(object):
     pages = 0
-
+    proxies = []
+    header = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36',
+        'Referer': 'https://www.lagou.com/jobs/list_%E4%BC%9A%E8%AE%A1?labelWords=sug&fromSearch=true&suginput=%E4%BC%9A%E8%AE%A1'
+    }
     def __init__(self, keyword):
         self.keyword = keyword
+        self.init_proxys()
+
+    def init_proxys(self):
+        
+        proxy_list = session.query(Proxys).all()
+        for proxy in proxy_list:
+            self.proxies.append({
+                'http': 'http://{}:{}'.format(proxy.ip, proxy.port)
+            })
 
     def fetch_one(self, page=0):
         url = 'https://www.lagou.com/jobs/positionAjax.json?city=%E6%88%90%E9%83%BD&needAddtionalResult=false&isSchoolJob=0'
-        header = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36',
-            'Referer': 'https://www.lagou.com/jobs/list_%E4%BC%9A%E8%AE%A1?labelWords=sug&fromSearch=true&suginput=%E4%BC%9A%E8%AE%A1'
-        }
+        proxy = random.choice(self.proxies)
         params = {
             'first': False,
             'pn': str(page),
             'kd': self.keyword
         }
  
-        result = requests.post(url, data=params, headers=header).json()
+        result = requests.post(url, data=params, headers=self.header, proxies=proxy, timeout=5).json()
 
         if result['success'] == False:
-            print('抓取失败')
+            print(', 抓取失败')
             print(result)
-            time.sleep(120)
+            time.sleep(60)
             return self.fetch_one(page)
         
         return result
@@ -41,6 +52,7 @@ class Scrapy(object):
         if self.pages % 15 == 0:
             page_num = self.pages // 15
         for page in range(1, page_num + 1):
+            time.sleep(5)
             print(
                 '关键字:{}, 共{}页, 正在抓取第{}页'.format(
                     self.keyword,
@@ -51,7 +63,6 @@ class Scrapy(object):
             )
             result = self.fetch_one(page)
             self.parse(result['content']['positionResult']['result'])
-            time.sleep(random.random()+5)
         print('{}职位抓取完成.'.format(self.keyword))
     def parse(self, jobs):
         # session = Session()
@@ -78,6 +89,7 @@ class Scrapy(object):
                     first_type=job['firstType'],
                     second_type=job['secondType']
                 )
+                # self.fetch_job_detail(job['positionId'])
                 session.add(position)
 
             # if company has been crawled
@@ -94,15 +106,28 @@ class Scrapy(object):
 
         session.commit()
         print(', 抓取成功')
+    def fetch_job_detail(self, job_id):
+        fetch_url = 'https://www.lagou.com/jobs/{}.html'.format(job_id)
+        html = requests.get(fetch_url, headers=self.header).text
+        self.parse_job_detail(html)
+    
+    def parse_job_detail(self, html):
+        soup = BeautifulSoup(html,'lxml')
+        try:
+            detail = soup.select('#job_detail')[0]
+            job_advantage = detail.select('.job-advantage')[0].select('p')[0].text
+        except Exception as e:
+            soup.select('#job_detail')
+        
 
 
 if __name__ == '__main__':
-    from models.model import Base, engine
-    Base.metadata.drop_all(engine)
-    Base.metadata.create_all(engine)
+    # from models.model import Base, engine
+    # Base.metadata.drop_all(engine)
+    # Base.metadata.create_all(engine)
 
-    pos_list = ['会计', '会计与审计', '审计', '行政']
+    pos_list = ['前端', 'web前端', 'python', '后端']
     for pos in pos_list:
         scrapy = Scrapy(pos)
         scrapy.spider()
-        time.sleep(random.random()+50)
+        time.sleep(70)
