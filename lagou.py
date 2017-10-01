@@ -52,7 +52,7 @@ class Scrapy(object):
         if self.pages % 15 == 0:
             page_num = self.pages // 15
         for page in range(1, page_num + 1):
-            time.sleep(5)
+            time.sleep(5.5)
             print(
                 '关键字:{}, 共{}页, 正在抓取第{}页'.format(
                     self.keyword,
