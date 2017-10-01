@@ -117,28 +117,68 @@ class Scrapy(object):
         fetch_url = 'https://www.lagou.com/jobs/{}.html'.format(job_id)
         html = requests.get(fetch_url, headers=self.header).text
         soup = BeautifulSoup(html,'lxml')
+        job_advantage = None
+        description = None
+        location = None
+        publisher_name = None
+        tend_to_talk = None
+        deal_resume = None
+        active_time = None
         # 职位诱惑
-        job_advantage = soup.select('#job_detail')[0].select('.job-advantage')[0].select('p')[0].text
-        description_tmp = soup.select('#job_detail')[0].select('dd.job_bt div')[0].select('p')
+        try:
+            job_advantage = soup.select('#job_detail')[0].select('.job-advantage')[0].select('p')[0].text
+        except IndexError:
+            print('职位诱惑抓取失败')
+            pass
         # 职位描述
-        description = [x.text for x in description_tmp if x.text != '']
-        location = re.sub('[/\s查看地图]', '', soup.select('.work_addr')[0].text)
+        try:
+            description_tmp = soup.select('#job_detail')[0].select('dd.job_bt div')[0].select('p')
+            description = [x.text for x in description_tmp if x.text != '']
+        except Exception:
+            print('职位描述抓取失败')
+            pass
+        # 工作区域
+        try:
+            location = re.sub('[/\s查看地图]', '', soup.select('.work_addr')[0].text)
+        except IndexError:
+            print('工作区域抓取失败')
+            pass
+        
         # 发布者
-        publisher_name = soup.select('.publisher_name .name')[0].text
+        try:
+            publisher_name = soup.select('.publisher_name .name')[0].text
+        except IndexError:
+            print('发布者抓取失败')
+            pass
+        
         # 聊天意愿
-        tend_to_talk = dict()
-        tend_content = soup.select('.publisher_data div')[0]
-        tend_to_talk['step'] = tend_content.select('.data')[0].text
-        tend_to_talk['percent'] = tend_content.select('.tip')[0].select('i')[0].text
-        tend_to_talk['time'] = tend_content.select('.tip')[0].select('i')[1].text
-        # 简历处理速度
-        deal_resume = dict()
-        resume_content = soup.select('.publisher_data div')[1]
-        deal_resume['step'] = resume_content.select('.data')[0].text
-        deal_resume['percent'] = resume_content.select('.tip')[0].select('i')[0].text
-        deal_resume['time'] = resume_content.select('.tip')[0].select('i')[1].text
+        try:
+            tend_to_talk = dict()
+            tend_content = soup.select('.publisher_data div')[0]
+            tend_to_talk['step'] = tend_content.select('.data')[0].text
+            tend_to_talk['percent'] = tend_content.select('.tip')[0].select('i')[0].text
+            tend_to_talk['time'] = tend_content.select('.tip')[0].select('i')[1].text
+        except IndexError:
+            print('聊天意愿抓取失败')
+            pass
+        
+        try:
+            deal_resume = dict()
+            resume_content = soup.select('.publisher_data div')[1]
+            deal_resume['step'] = resume_content.select('.data')[0].text
+            deal_resume['percent'] = resume_content.select('.tip')[0].select('i')[0].text
+            deal_resume['time'] = resume_content.select('.tip')[0].select('i')[1].text
+        except IndexError:
+            print('简历处理速度抓取失败')
+            pass
+            
         # 活跃时间--上午，下午，中午
-        active_time = soup.select('.publisher_data div')[1].select('.data')[0].text
+        try:
+            active_time = soup.select('.publisher_data div')[1].select('.data')[0].text
+        except IndexError:
+            print('活跃时间抓取失败')
+            pass
+        
         return {
             'job_advantage': job_advantage,
             'description': description,
