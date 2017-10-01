@@ -42,6 +42,14 @@ class Position(Base):
     first_type = Column(String(20))
     second_type = Column(String(20))
 
+    job_advantage = Column(String(200))
+    description = Column(JSON)
+    location = Column(String(200))
+    publisher_name = Column(String(50))
+    tend_to_talk = Column(JSON)
+    deal_resume = Column(JSON)
+    active_time = Column(String(20))
+
 class Proxys(Base):
     __tablename__ = 'proxys'
 

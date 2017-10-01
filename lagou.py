@@ -2,6 +2,7 @@
 #coding:utf8
 import requests
 import time
+import re
 import random
 from bs4 import BeautifulSoup
 from database.base_db import Session
@@ -51,12 +52,11 @@ class Scrapy(object):
         page_num = int(self.pages / 15) + 1
         if self.pages % 15 == 0:
             page_num = self.pages // 15
+        print('共{}页', end='')
         for page in range(1, page_num + 1):
             time.sleep(5.5)
             print(
-                '关键字:{}, 共{}页, 正在抓取第{}页'.format(
-                    self.keyword,
-                    page_num,
+                '正在抓取第{}页'.format(
                     page
                 ),
                 end=''
@@ -65,12 +65,12 @@ class Scrapy(object):
             self.parse(result['content']['positionResult']['result'])
         print('{}职位抓取完成.'.format(self.keyword))
     def parse(self, jobs):
-        # session = Session()
         for job in jobs:
             cp = session.query(Company.id).filter_by(id=job['companyId']).first()
             ps = session.query(Position.id).filter_by(id=job['positionId']).first()
             # if position has been crawled
             if ps is None:
+                job_detail = self.parse_job_detail(job['positionId'])
                 position = Position(
                     id=job['positionId'],
                     company_id=job['companyId'],
@@ -87,9 +87,15 @@ class Scrapy(object):
                     industry_lables=job['industryLables'],
                     district=job['district'],
                     first_type=job['firstType'],
-                    second_type=job['secondType']
+                    second_type=job['secondType'],
+                    job_advantage=job_detail['job_advantage'],
+                    description=job_detail['description'],
+                    location=job_detail['location'],
+                    publisher_name=job_detail['publisher_name'],
+                    tend_to_talk=job_detail['tend_to_talk'],
+                    deal_resume=job_detail['deal_resume'],
+                    active_time=job_detail['active_time']
                 )
-                # self.fetch_job_detail(job['positionId'])
                 session.add(position)
 
             # if company has been crawled
@@ -106,19 +112,42 @@ class Scrapy(object):
 
         session.commit()
         print(', 抓取成功')
-    def fetch_job_detail(self, job_id):
+    
+    def parse_job_detail(self, job_id):
         fetch_url = 'https://www.lagou.com/jobs/{}.html'.format(job_id)
         html = requests.get(fetch_url, headers=self.header).text
-        self.parse_job_detail(html)
-    
-    def parse_job_detail(self, html):
         soup = BeautifulSoup(html,'lxml')
-        try:
-            detail = soup.select('#job_detail')[0]
-            job_advantage = detail.select('.job-advantage')[0].select('p')[0].text
-        except Exception as e:
-            soup.select('#job_detail')
-        
+        # 职位诱惑
+        job_advantage = soup.select('#job_detail')[0].select('.job-advantage')[0].select('p')[0].text
+        description_tmp = soup.select('#job_detail')[0].select('dd.job_bt div')[0].select('p')
+        # 职位描述
+        description = [x.text for x in description_tmp if x.text != '']
+        location = re.sub('[/\s查看地图]', '', soup.select('.work_addr')[0].text)
+        # 发布者
+        publisher_name = soup.select('.publisher_name .name')[0].text
+        # 聊天意愿
+        tend_to_talk = dict()
+        tend_content = soup.select('.publisher_data div')[0]
+        tend_to_talk['step'] = tend_content.select('.data')[0].text
+        tend_to_talk['percent'] = tend_content.select('.tip')[0].select('i')[0].text
+        tend_to_talk['time'] = tend_content.select('.tip')[0].select('i')[1].text
+        # 简历处理速度
+        deal_resume = dict()
+        resume_content = soup.select('.publisher_data div')[1]
+        deal_resume['step'] = resume_content.select('.data')[0].text
+        deal_resume['percent'] = resume_content.select('.tip')[0].select('i')[0].text
+        deal_resume['time'] = resume_content.select('.tip')[0].select('i')[1].text
+        # 活跃时间--上午，下午，中午
+        active_time = soup.select('.publisher_data div')[1].select('.data')[0].text
+        return {
+            'job_advantage': job_advantage,
+            'description': description,
+            'location': location,
+            'publisher_name': publisher_name,
+            'tend_to_talk': tend_to_talk,
+            'deal_resume': deal_resume,
+            'active_time': active_time
+        }
 
 
 if __name__ == '__main__':
@@ -128,6 +157,7 @@ if __name__ == '__main__':
 
     pos_list = ['前端', 'web前端', 'python', '后端']
     for pos in pos_list:
+        print('关键字{}, '.format(pos), end='')
         scrapy = Scrapy(pos)
         scrapy.spider()
         time.sleep(70)
