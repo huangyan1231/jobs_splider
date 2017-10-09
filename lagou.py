@@ -11,10 +11,37 @@ session = Session()
 class Scrapy(object):
     pages = 0
     proxies = []
-    header = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36',
-        'Referer': 'https://www.lagou.com/jobs/list_%E4%BC%9A%E8%AE%A1?labelWords=sug&fromSearch=true&suginput=%E4%BC%9A%E8%AE%A1'
-    }
+    ua_list = [
+        "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/22.0.1207.1 Safari/537.1",
+        "Mozilla/5.0 (X11; CrOS i686 2268.111.0) AppleWebKit/536.11 (KHTML, like Gecko) Chrome/20.0.1132.57 Safari/536.11",
+        "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/536.6 (KHTML, like Gecko) Chrome/20.0.1092.0 Safari/536.6",
+        "Mozilla/5.0 (Windows NT 6.2) AppleWebKit/536.6 (KHTML, like Gecko) Chrome/20.0.1090.0 Safari/536.6",
+        "Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/19.77.34.5 Safari/537.1",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/536.5 (KHTML, like Gecko) Chrome/19.0.1084.9 Safari/536.5",
+        "Mozilla/5.0 (Windows NT 6.0) AppleWebKit/536.5 (KHTML, like Gecko) Chrome/19.0.1084.36 Safari/536.5",
+        "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1063.0 Safari/536.3",
+        "Mozilla/5.0 (Windows NT 5.1) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1063.0 Safari/536.3",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_0) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1063.0 Safari/536.3",
+        "Mozilla/5.0 (Windows NT 6.2) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1062.0 Safari/536.3",
+        "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1062.0 Safari/536.3",
+        "Mozilla/5.0 (Windows NT 6.2) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1061.1 Safari/536.3",
+        "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1061.1 Safari/536.3",
+        "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1061.1 Safari/536.3",
+        "Mozilla/5.0 (Windows NT 6.2) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1061.0 Safari/536.3",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/535.24 (KHTML, like Gecko) Chrome/19.0.1055.1 Safari/535.24",
+        "Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/535.24 (KHTML, like Gecko) Chrome/19.0.1055.1 Safari/535.24"
+    ]
+    @property
+    def header(self):
+        ua = random.choice(self.ua_list)
+        return {
+            'User-Agent': ua,
+            'Referer': 'https://www.lagou.com/jobs/list_%E4%BC%9A%E8%AE%A1?labelWords=sug&fromSearch=true&suginput=%E4%BC%9A%E8%AE%A1'
+        }
+    # header = {
+    #     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36',
+    #     'Referer': 'https://www.lagou.com/jobs/list_%E4%BC%9A%E8%AE%A1?labelWords=sug&fromSearch=true&suginput=%E4%BC%9A%E8%AE%A1'
+    # }
     def __init__(self, keyword):
         self.keyword = keyword
         self.init_proxys()
@@ -41,7 +68,7 @@ class Scrapy(object):
         if result['success'] == False:
             print(', 抓取失败')
             print(result)
-            time.sleep(60)
+            # time.sleep(60)
             return self.fetch_one(page)
         
         return result
@@ -54,7 +81,7 @@ class Scrapy(object):
             page_num = self.pages // 15
         print('共{}页'.format(page_num), end='')
         for page in range(1, page_num + 1):
-            time.sleep(5.5)
+            # time.sleep(6)
             print(
                 '正在抓取第{}页'.format(
                     page
@@ -66,11 +93,10 @@ class Scrapy(object):
         print('{}职位抓取完成.'.format(self.keyword))
     def parse(self, jobs):
         for job in jobs:
-            cp = session.query(Company.id).filter_by(id=job['companyId']).first()
-            ps = session.query(Position.id).filter_by(id=job['positionId']).first()
             # if position has been crawled
+            cp = session.query(Company).filter_by(id=job['companyId']).first()
+            ps = session.query(Position).filter_by(id=job['positionId']).first()
             if ps is None:
-                job_detail = self.parse_job_detail(job['positionId'])
                 position = Position(
                     id=job['positionId'],
                     company_id=job['companyId'],
@@ -88,18 +114,18 @@ class Scrapy(object):
                     district=job['district'],
                     first_type=job['firstType'],
                     second_type=job['secondType'],
-                    job_advantage=job_detail['job_advantage'],
-                    description=job_detail['description'],
-                    location=job_detail['location'],
-                    publisher_name=job_detail['publisher_name'],
-                    tend_to_talk=job_detail['tend_to_talk'],
-                    deal_resume=job_detail['deal_resume'],
-                    active_time=job_detail['active_time']
+                    # job_advantage=job_detail['job_advantage'],
+                    # description=job_detail['description'],
+                    # location=job_detail['location'],
+                    # publisher_name=job_detail['publisher_name'],
+                    # tend_to_talk=job_detail['tend_to_talk'],
+                    # deal_resume=job_detail['deal_resume'],
+                    # active_time=job_detail['active_time']
                 )
                 session.add(position)
-
-            # if company has been crawled
+                session.commit()
             if cp is None:
+                # if company has been crawled
                 company = Company(
                     id=job['companyId'],
                     company_size=job['companySize'],
@@ -109,11 +135,12 @@ class Scrapy(object):
                     company_label_list=job['companyLabelList']
                 )
                 session.add(company)
+                session.commit()
 
-        session.commit()
         print(', 抓取成功')
     
     def parse_job_detail(self, job_id):
+        # time.sleep(5)
         fetch_url = 'https://www.lagou.com/jobs/{}.html'.format(job_id)
         html = requests.get(fetch_url, headers=self.header).text
         soup = BeautifulSoup(html,'lxml')
@@ -128,6 +155,7 @@ class Scrapy(object):
         try:
             job_advantage = soup.select('#job_detail')[0].select('.job-advantage')[0].select('p')[0].text
         except IndexError:
+            print(html)
             print('职位诱惑抓取失败')
             pass
         # 职位描述
@@ -195,9 +223,29 @@ if __name__ == '__main__':
     # Base.metadata.drop_all(engine)
     # Base.metadata.create_all(engine)
 
-    pos_list = ['前端', 'web前端', 'python', '后端']
+    pos_list = [
+        '前端',
+        'web前端',
+        'python',
+        '后端',
+        '会计',
+        '审计',
+        '会计与审计',
+        '行政',
+        '出纳',
+        '收纳',
+        '统计',
+        '数据分析',
+        '爬虫',
+        'office',
+        'excel',
+        'ppt',
+        '机器学习',
+        '人工智能',
+        '深度学习'
+    ]
     for pos in pos_list:
         print('关键字{}, '.format(pos), end='')
         scrapy = Scrapy(pos)
         scrapy.spider()
-        time.sleep(70)
+        # time.sleep(70)

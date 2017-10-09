@@ -4,9 +4,10 @@ from bs4 import BeautifulSoup
 from database.base_db import Session
 from models.model import Proxys
 session = Session()
-def test_ip(ip, port, protocal):
-    url = 'http://ip138.com/'
-    if protocal == 'https':
+def test_ip(ip, port, protocal, nn):
+    # url = 'http://ip138.com/'
+    url = 'http://www.whatismyip.com.tw/'
+    if protocal == 'https' or nn != '高匿':
         return
     proxy = {
         'http': 'http://{}:{}'.format(ip, port)
@@ -34,20 +35,22 @@ def fetch(page):
     global headers
     headers = {'User-Agent':'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Mobile Safari/537.36'}
     url = 'http://www.xicidaili.com/nn/{}'.format(page)
-    s = requests.get(url,headers = headers)
+    s = requests.get(url,headers = headers, timeout=10)
     soup = BeautifulSoup(s.text,'lxml')
     ips = soup.select('#ip_list tr')
     for i in ips:
         try:
             ipp = i.select('td')
+            nn = ipp[4].text
             ip = ipp[1].text
             port = ipp[2].text
             protocal = ipp[5].text.lower()
-            test_ip(ip, port, protocal)
+
+            test_ip(ip, port, protocal, nn)
         except Exception as e :
             # print (e)
             pass
 
 if __name__ == '__main__':
-    for i in range(1, 10):
+    for i in range(1, 500):
         fetch(i)
