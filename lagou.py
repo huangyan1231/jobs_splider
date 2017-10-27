@@ -8,7 +8,7 @@ from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from database.base_db import Session
-from models.model import Company, Position, Proxys
+from models.model import Company, Position
 session = Session()
 class Scrapy(object):
     pages = 0
@@ -20,7 +20,7 @@ class Scrapy(object):
         "Mozilla/5.0 (Windows NT 6.2) AppleWebKit/536.6 (KHTML, like Gecko) Chrome/20.0.1090.0 Safari/536.6",
         "Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/19.77.34.5 Safari/537.1",
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/536.5 (KHTML, like Gecko) Chrome/19.0.1084.9 Safari/536.5",
-        "Mozilla/5.0 (Windows NT 6.0) AppleWebKit/536.5 (KHTML, like Gecko) Chrome/19.0.1084.36 Safari/536.5",
+        "Mozilla/5.0 (Windows NT  6.0) AppleWebKit/536.5 (KHTML, like Gecko) Chrome/19.0.1084.36 Safari/536.5",
         "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1063.0 Safari/536.3",
         "Mozilla/5.0 (Windows NT 5.1) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1063.0 Safari/536.3",
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_0) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1063.0 Safari/536.3",
@@ -47,25 +47,21 @@ class Scrapy(object):
 
     def __init__(self, keyword):
         self.keyword = keyword
-        proxy_list = session.query(Proxys).all()
-        for proxy in proxy_list:
-            self.proxies.append({
-                'http': 'http://{}:{}'.format(proxy.ip, proxy.port)
-            }) 
 
     def fetch_one(self, page=0):
         url = 'https://www.lagou.com/jobs/positionAjax.json?city=%E6%88%90%E9%83%BD&needAddtionalResult=false&isSchoolJob=0'
-        proxy = random.choice(self.proxies)
         params = {
             'first': False,
             'pn': str(page),
             'kd': self.keyword
         }
-        try:
-            result = requests.post(url, data=params, headers=self.header, proxies=proxy, timeout=5).json()
-        except Exception:
-            proxy = random.choice(self.proxies)
-            result = requests.post(url, data=params, headers=self.header, proxies=proxy, timeout=10).json()
+        while True:
+            try:
+                result = requests.post(url, data=params, headers=self.header, timeout=5).json()
+                break
+            except Exception:
+                print('连接失败')
+                pass
 
         if result['success'] == False:
             print(', 抓取失败')
@@ -89,7 +85,7 @@ class Scrapy(object):
     def parse(self, jobs, page, page_num):
         for i in range(0, len(jobs)):
             print('共{}页,正在抓取第{}页，第{}条记录'.format(page_num, page, i+1), end='')
-            err_count = 3
+            err_count = 2
             job = jobs[i]
             # if position has been crawled
             cp = session.query(Company).filter_by(id=job['companyId']).first()
@@ -97,7 +93,7 @@ class Scrapy(object):
             if ps is None:
                 job_detail = self.parse_job_detail(job['positionId'])
                 while err_count > 0 and job_detail['success'] == False:
-                    print('\n抓取详情失败, 重连第{}次'.format(4 - err_count), end='')
+                    print('\n抓取详情失败, 重连第{}次'.format(3 - err_count), end='')
                     self.sleep(random.random() * 5)
                     job_detail = self.parse_job_detail(job['positionId'])
                     err_count = err_count - 1
@@ -224,34 +220,34 @@ if __name__ == '__main__':
     # from models.model import Base, engine
     # Base.metadata.drop_all(engine)
     # Base.metadata.create_all(engine)
-    b = webdriver.Chrome()
-    b.get('https://www.lagou.com/')
+    # b = webdriver.Chrome()
+    # b.get('https://www.lagou.com/')
 
-    s = BeautifulSoup(b.page_source, 'html.parser')
-    b.close()
-    pos_list = s.select('a[href^="https://www.lagou.com/zhaopin/"]')
-    # pos_list = [
-    #     # '前端',
-    #     # 'web前端',
-    #     # 'python',
-    #     # '后端',
-    #     '会计',
-    #     '审计',
-    #     '会计与审计',
-    #     '行政',
-    #     '出纳',
-    #     '收纳',
-    #     '统计',
-    #     '数据分析',
-    #     '爬虫',
-    #     'office',
-    #     'excel',
-    #     'ppt',
-    #     '机器学习',
-    #     '人工智能',
-    #     '深度学习'
-    # ]
+    # s = BeautifulSoup(b.page_source, 'html.parser')
+    # b.close()
+    # pos_list = s.select('a[href^="https://www.lagou.com/zhaopin/"]')
+    pos_list = [
+        # '前端',
+        # 'web前端',
+        # 'python',
+        # '后端',
+        '会计',
+        '审计',
+        '会计与审计',
+        '行政',
+        '出纳',
+        '收纳',
+        '统计',
+        # '数据分析',
+        # '爬虫',
+        # 'office',
+        # 'excel',
+        # 'ppt',
+        # '机器学习',
+        # '人工智能',
+        # '深度学习'
+    ]
     for pos in pos_list:
-        print('关键字{}, '.format(pos.text), end='')
-        scrapy = Scrapy(pos.text)
+        print('关键字{}, '.format(pos), end='')
+        scrapy = Scrapy(pos)
         scrapy.spider()
