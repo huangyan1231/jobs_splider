@@ -5,8 +5,6 @@ import time
 import re
 import random
 from bs4 import BeautifulSoup
-from selenium import webdriver
-from selenium.webdriver.common.keys import Keys
 from database.base_db import Session
 from models.model import Company, Position
 session = Session()
@@ -40,10 +38,14 @@ class Scrapy(object):
             'User-Agent': ua,
             'Referer': 'https://www.lagou.com/jobs/list_%E4%BC%9A%E8%AE%A1?labelWords=sug&fromSearch=true&suginput=%E4%BC%9A%E8%AE%A1'
         }
-
-    def sleep(self, s):
-        print('休眠:{}秒'.format(s))
-        time.sleep(s)
+    
+    @property
+    def proxies(self):
+        result = requests.get('http://127.0.0.1:5010/get')
+        print(result.text)
+        return {
+            'http': 'http://' + result.text
+        }, result.text.split(':')[0]
 
     def __init__(self, keyword):
         self.keyword = keyword
@@ -55,9 +57,13 @@ class Scrapy(object):
             'pn': str(page),
             'kd': self.keyword
         }
+        proxies, ip = self.proxies
+        header = self.header
+        header['X-Forwarded-For'] = ip
+        header['X-Real-IP'] = ip
         while True:
             try:
-                result = requests.post(url, data=params, headers=self.header, timeout=5).json()
+                result = requests.post(url, data=params, headers=header, timeout=5, proxies=proxies).json()
                 break
             except Exception:
                 print('连接失败')
@@ -66,7 +72,6 @@ class Scrapy(object):
         if result['success'] == False:
             print(', 抓取失败')
             print(result)
-            self.sleep(60)
             return self.fetch_one(page)
         
         return result
@@ -80,7 +85,6 @@ class Scrapy(object):
         for page in range(1, page_num + 1):
             result = self.fetch_one(page)
             self.parse(result['content']['positionResult']['result'], page, page_num)
-            # self.sleep(3)
         print('{}职位抓取完成.'.format(self.keyword))
     def parse(self, jobs, page, page_num):
         for i in range(0, len(jobs)):
@@ -94,7 +98,6 @@ class Scrapy(object):
                 job_detail = self.parse_job_detail(job['positionId'])
                 while err_count > 0 and job_detail['success'] == False:
                     print('\n抓取详情失败, 重连第{}次'.format(3 - err_count), end='')
-                    self.sleep(random.random() * 5)
                     job_detail = self.parse_job_detail(job['positionId'])
                     err_count = err_count - 1
                 position = Position(
@@ -140,16 +143,12 @@ class Scrapy(object):
 
     def parse_job_detail(self, job_id):
         fetch_url = 'https://www.lagou.com/jobs/{}.html'.format(job_id)
-        while True:
-            try:
-                detail_driver = webdriver.Chrome()
-                detail_driver.get(fetch_url)
-                break
-            except Exception as e:
-                print(e)
-        self.sleep(8)
-        html = detail_driver.page_source
-        detail_driver.close()
+        proxies, ip = self.proxies
+        header = self.header
+        header['X-Forwarded-For'] = ip
+        header['X-Real-IP'] = ip
+        result = requests.get(fetch_url, proxies=proxies, headers=header)
+        html = result.text
         soup = BeautifulSoup(html,'lxml')
         advan = {
             "success": True,
@@ -165,7 +164,7 @@ class Scrapy(object):
         try:
             advan['job_advantage'] = soup.select('#job_detail')[0].select('.job-advantage')[0].select('p')[0].text
         except Exception as e:
-            print(e)
+        #     print(e)
             advan["success"] = False
         # 职位描述
         try:
@@ -177,14 +176,14 @@ class Scrapy(object):
         try:
             advan["location"] = re.sub('[/\s查看地图]', '', soup.select('.work_addr')[0].text)
         except Exception as e:
-            print(e)
+        #    print(e)
             advan["success"] = False
         
         # 发布者
         try:
             advan["publisher_name"] = soup.select('.publisher_name .name')[0].text
         except Exception as e:
-            print(e)
+        #    print(e)
             advan["success"] = False
         
         # 聊天意愿
@@ -195,7 +194,7 @@ class Scrapy(object):
             advan["tend_to_talk"]['percent'] = tend_content.select('.tip')[0].select('i')[0].text
             advan["tend_to_talk"]['time'] = tend_content.select('.tip')[0].select('i')[1].text
         except Exception as e:
-            print(e)
+        #    print(e)
             advan["success"] = False
         
         try:
@@ -205,14 +204,14 @@ class Scrapy(object):
             advan["deal_resume"]['percent'] = resume_content.select('.tip')[0].select('i')[0].text
             advan["deal_resume"]['time'] = resume_content.select('.tip')[0].select('i')[1].text
         except Exception as e:
-            print(e)
+        #    print(e)
             advan["success"] = False
             
         # 活跃时间--上午，下午，中午
         try:
             advan["active_time"] = soup.select('.publisher_data div')[1].select('.data')[0].text
         except Exception as e:
-            print(e)
+        #    print(e)
             advan["success"] = False
         return advan
 
@@ -220,17 +219,14 @@ if __name__ == '__main__':
     # from models.model import Base, engine
     # Base.metadata.drop_all(engine)
     # Base.metadata.create_all(engine)
-    # b = webdriver.Chrome()
-    # b.get('https://www.lagou.com/')
-
     # s = BeautifulSoup(b.page_source, 'html.parser')
     # b.close()
     # pos_list = s.select('a[href^="https://www.lagou.com/zhaopin/"]')
     pos_list = [
-        # '前端',
-        # 'web前端',
-        # 'python',
-        # '后端',
+        '前端',
+        'web前端',
+        'python',
+        '后端',
         '会计',
         '审计',
         '会计与审计',
@@ -238,14 +234,14 @@ if __name__ == '__main__':
         '出纳',
         '收纳',
         '统计',
-        # '数据分析',
-        # '爬虫',
-        # 'office',
-        # 'excel',
-        # 'ppt',
-        # '机器学习',
-        # '人工智能',
-        # '深度学习'
+        '数据分析',
+        '爬虫',
+        'office',
+        'excel',
+        'ppt',
+        '机器学习',
+        '人工智能',
+        '深度学习'
     ]
     for pos in pos_list:
         print('关键字{}, '.format(pos), end='')
